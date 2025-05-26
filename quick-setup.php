@@ -1,8 +1,8 @@
 <?php
 /*
-Plugin Name: WordPress Quick Setup - Simple
-Description: Simple one-click setup for theme, plugins, and pages. Self-deletes after completion.
-Version: 2.1
+Plugin Name: WordPress Quick Setup - Enhanced
+Description: Enhanced one-click setup for theme, plugins (Elementor, Pro Elements, Envato Elements), and pages. Self-deletes after completion.
+Version: 2.2
 Author: Avinash P
 */
 
@@ -56,7 +56,7 @@ function simple_quick_setup_notice() {
     
     ?>
     <div class="notice notice-info">
-        <p><strong>🚀 WordPress Quick Setup:</strong> Ready to automatically install Hello Elementor theme, Elementor plugin, and create basic pages?</p>
+        <p><strong>🚀 WordPress Quick Setup:</strong> Ready to automatically install Hello Elementor theme, Elementor, Pro Elements, Envato Elements plugins, and create basic pages?</p>
         <p>
             <a href="<?php echo esc_url($setup_url); ?>" class="button button-primary">Start Quick Setup</a>
             <button onclick="this.parentElement.parentElement.parentElement.style.display='none'" class="button">Dismiss</button>
@@ -74,12 +74,13 @@ function run_quick_setup() {
         <title>Setting up WordPress...</title>
         <style>
             body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f1f1f1; }
-            .container { background: white; padding: 40px; border-radius: 8px; max-width: 500px; margin: 0 auto; }
+            .container { background: white; padding: 40px; border-radius: 8px; max-width: 600px; margin: 0 auto; }
             .progress { margin: 20px 0; }
             .step { padding: 10px; margin: 5px 0; background: #f8f9fa; border-radius: 4px; }
             .step.completed { background: #d4edda; color: #155724; }
             .step.current { background: #fff3cd; color: #856404; }
             .step.pending { background: #f8f9fa; color: #6c757d; }
+            .step.error { background: #f8d7da; color: #721c24; }
         </style>
     </head>
     <body>
@@ -91,7 +92,9 @@ function run_quick_setup() {
     $steps = array(
         'prepare' => 'Preparing installation...',
         'theme' => 'Installing Hello Elementor theme...',
-        'plugins' => 'Installing Elementor plugin...',
+        'elementor' => 'Installing Elementor plugin...',
+        'proelements' => 'Installing Pro Elements plugin...',
+        'envato' => 'Installing Envato Elements plugin...',
         'pages' => 'Creating pages and menu...',
         'cleanup' => 'Finalizing setup...'
     );
@@ -110,7 +113,7 @@ function run_quick_setup() {
         
         if (!$result['success']) {
             echo '<div style="color: red; margin: 10px 0;">Error: ' . $result['message'] . '</div>';
-            break;
+            // Continue with other steps even if one fails
         }
         
         sleep(1); // Brief pause for visual effect
@@ -136,6 +139,8 @@ function run_quick_setup() {
                 <ul style="text-align: left; display: inline-block;">
                     <li>Hello Elementor theme (activated)</li>
                     <li>Elementor plugin (installed)</li>
+                    <li>Pro Elements plugin (installed)</li>
+                    <li>Envato Elements plugin (installed)</li>
                     <li>Basic pages (Home, About, Services, Contact)</li>
                     <li>Navigation menu</li>
                 </ul>
@@ -154,8 +159,12 @@ function execute_setup_step($step) {
             return prepare_setup();
         case 'theme':
             return install_theme();
-        case 'plugins':
-            return install_plugins();
+        case 'elementor':
+            return install_elementor_plugin();
+        case 'proelements':
+            return install_proelements_plugin();
+        case 'envato':
+            return install_envato_elements_plugin();
         case 'pages':
             return create_pages_and_menu();
         case 'cleanup':
@@ -200,7 +209,7 @@ function install_theme() {
     return array('success' => false, 'message' => 'Theme installation failed');
 }
 
-function install_plugins() {
+function install_elementor_plugin() {
     $plugin_url = 'https://downloads.wordpress.org/plugin/elementor.latest-stable.zip';
     
     // Check if Elementor is already installed
@@ -220,7 +229,86 @@ function install_plugins() {
         }
     }
     
-    return array('success' => false, 'message' => 'Plugin installation failed');
+    return array('success' => false, 'message' => 'Elementor installation failed');
+}
+
+function install_proelements_plugin() {
+    // Check if Pro Elements is already installed
+    if (is_dir(WP_PLUGIN_DIR . '/proelements')) {
+        activate_plugin('proelements/proelements.php');
+        return array('success' => true, 'message' => 'Pro Elements already installed');
+    }
+    
+    // GitHub download URL for Pro Elements
+    $plugin_url = 'https://github.com/proelements/proelements/archive/refs/heads/master.zip';
+    
+    // Download the plugin
+    $temp_file = download_url($plugin_url);
+    if (is_wp_error($temp_file)) {
+        return array('success' => false, 'message' => 'Failed to download Pro Elements: ' . $temp_file->get_error_message());
+    }
+    
+    // Extract the plugin
+    $plugin_dir = WP_PLUGIN_DIR . '/proelements-temp';
+    
+    // Create temporary directory
+    if (!wp_mkdir_p($plugin_dir)) {
+        unlink($temp_file);
+        return array('success' => false, 'message' => 'Failed to create temporary directory');
+    }
+    
+    // Extract ZIP file
+    $unzip_result = unzip_file($temp_file, $plugin_dir);
+    unlink($temp_file);
+    
+    if (is_wp_error($unzip_result)) {
+        return array('success' => false, 'message' => 'Failed to extract Pro Elements: ' . $unzip_result->get_error_message());
+    }
+    
+    // Move from extracted folder to proper plugin directory
+    $extracted_folder = $plugin_dir . '/proelements-master';
+    $final_plugin_dir = WP_PLUGIN_DIR . '/proelements';
+    
+    if (is_dir($extracted_folder)) {
+        // Move the contents
+        if (rename($extracted_folder, $final_plugin_dir)) {
+            // Clean up temporary directory
+            rmdir($plugin_dir);
+            
+            // Try to activate the plugin
+            $activate_result = activate_plugin('proelements/proelements.php');
+            if (!is_wp_error($activate_result)) {
+                return array('success' => true, 'message' => 'Pro Elements installed and activated');
+            } else {
+                return array('success' => true, 'message' => 'Pro Elements installed (activation may require manual setup)');
+            }
+        }
+    }
+    
+    return array('success' => false, 'message' => 'Failed to install Pro Elements plugin');
+}
+
+function install_envato_elements_plugin() {
+    $plugin_url = 'https://downloads.wordpress.org/plugin/envato-elements.latest-stable.zip';
+    
+    // Check if Envato Elements is already installed
+    if (is_dir(WP_PLUGIN_DIR . '/envato-elements')) {
+        activate_plugin('envato-elements/envato-elements.php');
+        return array('success' => true, 'message' => 'Envato Elements already installed');
+    }
+    
+    $upgrader = new Plugin_Upgrader(new Automatic_Upgrader_Skin());
+    $result = $upgrader->install($plugin_url);
+    
+    if (!is_wp_error($result) && $result) {
+        // Activate the plugin
+        $activate_result = activate_plugin('envato-elements/envato-elements.php');
+        if (!is_wp_error($activate_result)) {
+            return array('success' => true, 'message' => 'Envato Elements installed and activated');
+        }
+    }
+    
+    return array('success' => false, 'message' => 'Envato Elements installation failed');
 }
 
 function create_pages_and_menu() {
