@@ -2,7 +2,7 @@
 /*
 Plugin Name: WordPress Quick Setup - Enhanced
 Description: Enhanced one-click setup for theme, plugins (Elementor, Pro Elements, Envato Elements), and pages. Self-deletes after completion.
-Version: 2.2
+Version: 2.3
 Author: Avinash P
 */
 
@@ -143,6 +143,7 @@ function run_quick_setup() {
                     <li>Envato Elements plugin (installed)</li>
                     <li>Basic pages (Home, About, Services, Contact)</li>
                     <li>Navigation menu</li>
+                    <li>Default content cleaned up</li>
                 </ul>
                 <p><a href="<?php echo admin_url(); ?>" class="button button-primary" style="background: #0073aa; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">Go to Dashboard</a></p>
             </div>
@@ -191,6 +192,8 @@ function install_theme() {
     // Check if Hello Elementor is already installed
     if (wp_get_theme('hello-elementor')->exists()) {
         switch_theme('hello-elementor');
+        configure_hello_theme();
+        delete_default_themes();
         return array('success' => true, 'message' => 'Theme already installed');
     }
     
@@ -202,11 +205,36 @@ function install_theme() {
     if (!is_wp_error($result) && $result) {
         if (wp_get_theme('hello-elementor')->exists()) {
             switch_theme('hello-elementor');
+            configure_hello_theme();
+            delete_default_themes();
             return array('success' => true, 'message' => 'Theme installed and activated');
         }
     }
     
     return array('success' => false, 'message' => 'Theme installation failed');
+}
+
+function configure_hello_theme() {
+    // Enable Hello Elementor theme settings
+    update_option('hello_elementor_disable_description_meta_tag', 'true');
+    update_option('hello_elementor_disable_skip_link', 'true');
+    update_option('hello_elementor_page_title', 'hide');
+}
+
+function delete_default_themes() {
+    // Delete default WordPress themes
+    $default_themes = array(
+        'twentytwentyfour',
+        'twentytwentythree',
+        'twentytwentyfive'
+    );
+    
+    foreach ($default_themes as $theme_slug) {
+        $theme = wp_get_theme($theme_slug);
+        if ($theme->exists()) {
+            delete_theme($theme_slug);
+        }
+    }
 }
 
 function install_elementor_plugin() {
@@ -312,11 +340,12 @@ function install_envato_elements_plugin() {
 }
 
 function create_pages_and_menu() {
+    // Create empty pages
     $pages = array(
         'Home' => '',
-        'About Us' => 'Welcome to our about page.',
-        'Our Services' => 'Learn about our services.',
-        'Contact Us' => 'Get in touch with us.'
+        'About Us' => '',
+        'Our Services' => '',
+        'Contact Us' => ''
     );
     
     $menu_name = 'Main Menu';
@@ -368,6 +397,29 @@ function cleanup_setup() {
     // Prevent Elementor setup wizard
     update_option('elementor_onboarded', true);
     delete_transient('elementor_activation_redirect');
+    
+    // Delete default Sample Page
+    $sample_page = get_page_by_title('Sample Page');
+    if ($sample_page) {
+        wp_delete_post($sample_page->ID, true);
+    }
+    
+    // Delete Privacy Policy page
+    $privacy_page = get_page_by_title('Privacy Policy');
+    if ($privacy_page) {
+        wp_delete_post($privacy_page->ID, true);
+    }
+    
+    // Delete default Hello World post
+    $hello_world = get_page_by_title('Hello world!', OBJECT, 'post');
+    if ($hello_world) {
+        wp_delete_post($hello_world->ID, true);
+    }
+    
+    // Delete default comment on Hello World post
+    global $wpdb;
+    $wpdb->query("DELETE FROM {$wpdb->comments} WHERE comment_ID = 1");
+    $wpdb->query("DELETE FROM {$wpdb->commentmeta} WHERE comment_id = 1");
     
     return array('success' => true, 'message' => 'Setup completed');
 }
