@@ -2,7 +2,7 @@
 /*
 Plugin Name: WordPress Quick Setup - Enhanced
 Description: Enhanced one-click setup for theme, plugins (Elementor, Pro Elements, Envato Elements), and pages. Self-deletes after completion.
-Version: 2.3
+Version: 2.4
 Author: Avinash P
 */
 
@@ -96,6 +96,7 @@ function run_quick_setup() {
         'proelements' => 'Installing Pro Elements plugin...',
         'envato' => 'Installing Envato Elements plugin...',
         'pages' => 'Creating pages and menu...',
+        'comments' => 'Disabling comments...',
         'cleanup' => 'Finalizing setup...'
     );
     
@@ -143,6 +144,7 @@ function run_quick_setup() {
                     <li>Envato Elements plugin (installed)</li>
                     <li>Basic pages (Home, About, Services, Contact)</li>
                     <li>Navigation menu</li>
+                    <li>Comments disabled site-wide</li>
                     <li>Default content cleaned up</li>
                 </ul>
                 <p><a href="<?php echo admin_url(); ?>" class="button button-primary" style="background: #0073aa; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">Go to Dashboard</a></p>
@@ -168,6 +170,8 @@ function execute_setup_step($step) {
             return install_envato_elements_plugin();
         case 'pages':
             return create_pages_and_menu();
+        case 'comments':
+            return disable_comments();
         case 'cleanup':
             return cleanup_setup();
         default:
@@ -362,7 +366,9 @@ function create_pages_and_menu() {
                     'post_title' => $title,
                     'post_content' => $content,
                     'post_status' => 'publish',
-                    'post_type' => 'page'
+                    'post_type' => 'page',
+                    'comment_status' => 'closed', // Disable comments on pages
+                    'ping_status' => 'closed' // Disable pingbacks
                 ));
                 
                 if ($page_id && !is_wp_error($page_id)) {
@@ -391,6 +397,31 @@ function create_pages_and_menu() {
     }
     
     return array('success' => true, 'message' => 'Pages and menu created');
+}
+
+function disable_comments() {
+    // Disable comments on posts and pages by default
+    update_option('default_comment_status', 'closed');
+    update_option('default_ping_status', 'closed');
+    
+    // Close comments on existing posts and pages
+    global $wpdb;
+    
+    // Close comments on all existing posts
+    $wpdb->query("UPDATE {$wpdb->posts} SET comment_status = 'closed', ping_status = 'closed' WHERE post_status = 'publish'");
+    
+    // Hide existing comments
+    update_option('comments_notify', 0);
+    update_option('moderation_notify', 0);
+    
+    // Remove comment support from posts and pages
+    update_option('page_comments', 0);
+    update_option('comments_per_page', 0);
+    
+    // Clear comment count cache
+    wp_cache_delete('comments', 'counts');
+    
+    return array('success' => true, 'message' => 'Comments disabled');
 }
 
 function cleanup_setup() {
