@@ -2,7 +2,7 @@
 /*
 Plugin Name: WordPress Quick Setup - Enhanced
 Description: Enhanced one-click setup for theme, plugins (Elementor, Pro Elements, Envato Elements), and pages. Self-deletes after completion.
-Version: 2.4
+Version: 2.5
 Author: Avinash P
 */
 
@@ -56,7 +56,7 @@ function simple_quick_setup_notice() {
     
     ?>
     <div class="notice notice-info">
-        <p><strong>🚀 WordPress Quick Setup:</strong> Ready to automatically install Hello Elementor theme, Elementor, Pro Elements, Envato Elements plugins, and create basic pages?</p>
+        <p><strong>🚀 WordPress Quick Setup:</strong> Ready to automatically install Hello Elementor theme, plugins, pages, theme settings, and permalinks?</p>
         <p>
             <a href="<?php echo esc_url($setup_url); ?>" class="button button-primary">Start Quick Setup</a>
             <button onclick="this.parentElement.parentElement.parentElement.style.display='none'" class="button">Dismiss</button>
@@ -97,6 +97,7 @@ function run_quick_setup() {
         'envato' => 'Installing Envato Elements plugin...',
         'pages' => 'Creating pages and menu...',
         'comments' => 'Disabling comments...',
+        'permalinks' => 'Configuring permalinks...',
         'cleanup' => 'Finalizing setup...'
     );
     
@@ -145,6 +146,8 @@ function run_quick_setup() {
                     <li>Basic pages (Home, About, Services, Contact)</li>
                     <li>Navigation menu</li>
                     <li>Comments disabled site-wide</li>
+                    <li>Permalinks set to /%postname%</li>
+                    <li>Hello Elementor theme header/footer, page title, and description meta tag disabled</li>
                     <li>Default content cleaned up</li>
                 </ul>
                 <p><a href="<?php echo admin_url(); ?>" class="button button-primary" style="background: #0073aa; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">Go to Dashboard</a></p>
@@ -172,6 +175,8 @@ function execute_setup_step($step) {
             return create_pages_and_menu();
         case 'comments':
             return disable_comments();
+        case 'permalinks':
+            return configure_permalinks();
         case 'cleanup':
             return cleanup_setup();
         default:
@@ -219,10 +224,10 @@ function install_theme() {
 }
 
 function configure_hello_theme() {
-    // Enable Hello Elementor theme settings
-    update_option('hello_elementor_disable_description_meta_tag', 'true');
-    update_option('hello_elementor_disable_skip_link', 'true');
-    update_option('hello_elementor_page_title', 'hide');
+    // Disable built-in Hello Elementor features that are handled elsewhere.
+    update_option('hello_elementor_settings_description_meta_tag', 'true');
+    update_option('hello_elementor_settings_header_footer', 'true');
+    update_option('hello_elementor_settings_page_title', 'true');
 }
 
 function delete_default_themes() {
@@ -422,6 +427,22 @@ function disable_comments() {
     wp_cache_delete('comments', 'counts');
     
     return array('success' => true, 'message' => 'Comments disabled');
+}
+
+function configure_permalinks() {
+    global $wp_rewrite;
+
+    $permalink_structure = '/%postname%';
+
+    if (is_object($wp_rewrite) && method_exists($wp_rewrite, 'set_permalink_structure')) {
+        $wp_rewrite->set_permalink_structure($permalink_structure);
+    } else {
+        update_option('permalink_structure', $permalink_structure);
+    }
+
+    flush_rewrite_rules(false);
+
+    return array('success' => true, 'message' => 'Permalinks configured');
 }
 
 function cleanup_setup() {
