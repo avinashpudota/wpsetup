@@ -1,20 +1,17 @@
 <?php
 /*
 Plugin Name: WordPress Quick Setup - Enhanced
-Description: Enhanced one-click setup for theme, plugins (Elementor, Pro Elements, Envato Elements), and pages. Self-deletes after completion.
-Version: 2.5
+Description: Enhanced one-click setup for theme, plugins (Elementor, Pro Elements, Envato Elements, QuickWebP), and pages. Self-deletes after completion.
+Version: 2.6
 Author: Avinash P
 */
-
 // Prevent direct access
 if (!defined('ABSPATH')) {
     exit;
 }
-
 // Simple setup without AJAX complications
 add_action('admin_init', 'simple_quick_setup_init');
 add_action('admin_notices', 'simple_quick_setup_notice');
-
 function simple_quick_setup_init() {
     // Check if setup is completed
     if (get_option('quick_setup_completed')) {
@@ -37,7 +34,6 @@ function simple_quick_setup_init() {
         run_quick_setup();
     }
 }
-
 function simple_quick_setup_notice() {
     // Don't show if already completed
     if (get_option('quick_setup_completed')) {
@@ -64,7 +60,6 @@ function simple_quick_setup_notice() {
     </div>
     <?php
 }
-
 function run_quick_setup() {
     // Show a simple progress page
     ?>
@@ -95,6 +90,7 @@ function run_quick_setup() {
         'elementor' => 'Installing Elementor plugin...',
         'proelements' => 'Installing Pro Elements plugin...',
         'envato' => 'Installing Envato Elements plugin...',
+        'quickwebp' => 'Installing QuickWebP plugin...',
         'pages' => 'Creating pages and menu...',
         'comments' => 'Disabling comments...',
         'permalinks' => 'Configuring permalinks...',
@@ -143,6 +139,7 @@ function run_quick_setup() {
                     <li>Elementor plugin (installed)</li>
                     <li>Pro Elements plugin (installed)</li>
                     <li>Envato Elements plugin (installed)</li>
+                    <li>QuickWebP plugin (installed)</li>
                     <li>Basic pages (Home, About, Services, Contact)</li>
                     <li>Navigation menu</li>
                     <li>Comments disabled site-wide</li>
@@ -158,7 +155,6 @@ function run_quick_setup() {
     <?php
     exit;
 }
-
 function execute_setup_step($step) {
     switch ($step) {
         case 'prepare':
@@ -171,6 +167,8 @@ function execute_setup_step($step) {
             return install_proelements_plugin();
         case 'envato':
             return install_envato_elements_plugin();
+        case 'quickwebp':
+            return install_quickwebp_plugin();
         case 'pages':
             return create_pages_and_menu();
         case 'comments':
@@ -183,7 +181,6 @@ function execute_setup_step($step) {
             return array('success' => false, 'message' => 'Unknown step');
     }
 }
-
 function prepare_setup() {
     // Include necessary files
     if (!function_exists('request_filesystem_credentials')) {
@@ -196,7 +193,6 @@ function prepare_setup() {
     
     return array('success' => true, 'message' => 'Preparation complete');
 }
-
 function install_theme() {
     // Check if Hello Elementor is already installed
     if (wp_get_theme('hello-elementor')->exists()) {
@@ -222,14 +218,12 @@ function install_theme() {
     
     return array('success' => false, 'message' => 'Theme installation failed');
 }
-
 function configure_hello_theme() {
     // Disable built-in Hello Elementor features that are handled elsewhere.
     update_option('hello_elementor_settings_description_meta_tag', 'true');
     update_option('hello_elementor_settings_header_footer', 'true');
     update_option('hello_elementor_settings_page_title', 'true');
 }
-
 function delete_default_themes() {
     // Delete default WordPress themes
     $default_themes = array(
@@ -245,7 +239,6 @@ function delete_default_themes() {
         }
     }
 }
-
 function install_elementor_plugin() {
     $plugin_url = 'https://downloads.wordpress.org/plugin/elementor.latest-stable.zip';
     
@@ -268,7 +261,6 @@ function install_elementor_plugin() {
     
     return array('success' => false, 'message' => 'Elementor installation failed');
 }
-
 function install_proelements_plugin() {
     // Check if Pro Elements is already installed
     if (is_dir(WP_PLUGIN_DIR . '/proelements')) {
@@ -324,7 +316,6 @@ function install_proelements_plugin() {
     
     return array('success' => false, 'message' => 'Failed to install Pro Elements plugin');
 }
-
 function install_envato_elements_plugin() {
     $plugin_url = 'https://downloads.wordpress.org/plugin/envato-elements.latest-stable.zip';
     
@@ -347,7 +338,28 @@ function install_envato_elements_plugin() {
     
     return array('success' => false, 'message' => 'Envato Elements installation failed');
 }
-
+function install_quickwebp_plugin() {
+    $plugin_url = 'https://downloads.wordpress.org/plugin/quickwebp.latest-stable.zip';
+    
+    // Check if QuickWebP is already installed
+    if (is_dir(WP_PLUGIN_DIR . '/quickwebp')) {
+        activate_plugin('quickwebp/quickwebp.php');
+        return array('success' => true, 'message' => 'QuickWebP already installed');
+    }
+    
+    $upgrader = new Plugin_Upgrader(new Automatic_Upgrader_Skin());
+    $result = $upgrader->install($plugin_url);
+    
+    if (!is_wp_error($result) && $result) {
+        // Activate the plugin
+        $activate_result = activate_plugin('quickwebp/quickwebp.php');
+        if (!is_wp_error($activate_result)) {
+            return array('success' => true, 'message' => 'QuickWebP installed and activated');
+        }
+    }
+    
+    return array('success' => false, 'message' => 'QuickWebP installation failed');
+}
 function create_pages_and_menu() {
     // Create empty pages
     $pages = array(
@@ -403,7 +415,6 @@ function create_pages_and_menu() {
     
     return array('success' => true, 'message' => 'Pages and menu created');
 }
-
 function disable_comments() {
     // Disable comments on posts and pages by default
     update_option('default_comment_status', 'closed');
@@ -428,23 +439,17 @@ function disable_comments() {
     
     return array('success' => true, 'message' => 'Comments disabled');
 }
-
 function configure_permalinks() {
     global $wp_rewrite;
-
     $permalink_structure = '/%postname%';
-
     if (is_object($wp_rewrite) && method_exists($wp_rewrite, 'set_permalink_structure')) {
         $wp_rewrite->set_permalink_structure($permalink_structure);
     } else {
         update_option('permalink_structure', $permalink_structure);
     }
-
     flush_rewrite_rules(false);
-
     return array('success' => true, 'message' => 'Permalinks configured');
 }
-
 function cleanup_setup() {
     // Prevent Elementor setup wizard
     update_option('elementor_onboarded', true);
@@ -475,7 +480,6 @@ function cleanup_setup() {
     
     return array('success' => true, 'message' => 'Setup completed');
 }
-
 // Prevent Elementor redirect on activation
 add_action('admin_init', function() {
     delete_transient('elementor_activation_redirect');
