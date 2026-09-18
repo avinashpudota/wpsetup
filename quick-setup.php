@@ -2,7 +2,7 @@
 /*
 Plugin Name: WordPress Quick Setup - Enhanced
 Description: Enhanced one-click setup for theme, plugins (Elementor, Pro Elements, Envato Elements, QuickWebP), and pages. Self-deletes after completion.
-Version: 2.6
+Version: 2.7
 Author: Avinash P
 */
 // Prevent direct access
@@ -137,6 +137,7 @@ function run_quick_setup() {
                 <ul style="text-align: left; display: inline-block;">
                     <li>Hello Elementor theme (activated)</li>
                     <li>Elementor plugin (installed)</li>
+                    <li>Elementor Atomic Editor disabled</li>
                     <li>Pro Elements plugin (installed)</li>
                     <li>Envato Elements plugin (installed)</li>
                     <li>QuickWebP plugin (installed)</li>
@@ -244,8 +245,7 @@ function install_elementor_plugin() {
     
     // Check if Elementor is already installed
     if (is_dir(WP_PLUGIN_DIR . '/elementor')) {
-        activate_plugin('elementor/elementor.php');
-        return array('success' => true, 'message' => 'Elementor already installed');
+        return quick_setup_activate_elementor();
     }
     
     $upgrader = new Plugin_Upgrader(new Automatic_Upgrader_Skin());
@@ -253,13 +253,38 @@ function install_elementor_plugin() {
     
     if (!is_wp_error($result) && $result) {
         // Activate the plugin
-        $activate_result = activate_plugin('elementor/elementor.php');
-        if (!is_wp_error($activate_result)) {
-            return array('success' => true, 'message' => 'Elementor installed and activated');
-        }
+        return quick_setup_activate_elementor();
     }
     
     return array('success' => false, 'message' => 'Elementor installation failed');
+}
+function quick_setup_activate_elementor() {
+    $result = activate_plugin('elementor/elementor.php');
+    if (is_wp_error($result)) {
+        return array('success' => false, 'message' => 'Elementor activation failed');
+    }
+
+    return quick_setup_disable_atomic_editor();
+}
+function quick_setup_disable_atomic_editor() {
+    // Match Elementor's Settings > Atomic Editor opt-out, including any
+    // dependent features declared by the installed Elementor version.
+    $features = array('e_opt_in_v4', 'e_atomic_elements');
+    $opt_out_constant = 'Elementor\\Modules\\AtomicWidgets\\OptIn\\Opt_In::OPT_OUT_FEATURES';
+    if (defined($opt_out_constant)) {
+        $features = array_unique(array_merge($features, constant($opt_out_constant)));
+    }
+
+    foreach ($features as $feature) {
+        $option = 'elementor_experiment-' . $feature;
+        update_option($option, 'inactive');
+        // update_option() also returns false when the value is unchanged.
+        if ('inactive' !== get_option($option)) {
+            return array('success' => false, 'message' => 'Failed to disable Elementor Atomic Editor');
+        }
+    }
+
+    return array('success' => true, 'message' => 'Elementor activated; Atomic Editor disabled');
 }
 function install_proelements_plugin() {
     // Check if Pro Elements is already installed
